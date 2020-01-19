@@ -5,10 +5,10 @@ import argparse
 # https://github.com/al45tair/ds_store/
 # https://ds-store.readthedocs.io/en/latest/
 # https://github.com/electron-userland/electron-builder/blob/master/packages/dmg-builder/vendor/ds_store/store.py
-from ds_store import DSStore
+import ds_store
 
 def get_ds_store(baseurl, path, tree,verbose=False):
-    url = f"{baseurl}{path}/.ds_store"
+    url = f"{baseurl}{path}/.DS_Store"
     r = requests.get(url)
     if path != "":
         tree.append(path)
@@ -23,22 +23,27 @@ def get_ds_store(baseurl, path, tree,verbose=False):
         # We get directory content
         data = get_data(path)
 
-        # We create a new subtree
-        subtree = []
-        for sub in data:
-            subtree.append(get_ds_store(baseurl,path + "/" + sub,[], verbose))
-        # We attach this subtree to the main branch when it's over
-        tree.append(subtree)
+        if data:
+            # We create a new subtree
+            subtree = []
+            for sub in data:
+                subtree.append(get_ds_store(baseurl,path + "/" + sub,[], verbose))
+            # We attach this subtree to the main branch when it's over
+            tree.append(subtree)
 
     return tree
 
 
 def get_data(path):
-    d = DSStore.open(".ds_store", "r+")
     data = []
-    for i in d:
-        if i.filename not in data:
-            data.append(i.filename)
+    try:
+        d = ds_store.DSStore.open(".ds_store", "r+")
+        for i in d:
+            if i.filename not in data:
+                data.append(i.filename)
+    except ds_store.buddy.BuddyError as e:
+        pass
+
     return data
 
 def print_data(tree, padding):
@@ -48,6 +53,10 @@ def print_data(tree, padding):
         else:
             line = "\t" * padding + subtree
             print(f"\033[{91+padding}m{line}\033[00m")
+
+def clean_files():
+    # Cleaning temp file
+    subprocess.call(["rm", "-rf", ".ds_store"])
 
 def parser():
     parser = argparse.ArgumentParser()
@@ -61,16 +70,15 @@ if __name__ == "__main__":
 
     url = args.url
 
-    print("[+] Running ...")
+    print("[*] Running ...")
 
     tree = get_ds_store(url, "", [], args.verbose)
 
-    print("[*] Finished.")
+    print("[*] Finished")
     if len(tree) == 0:
         print("[-] No sub-folders found.") 
     else:
         print("[+] Final Tree:\n")
         print_data(tree, -2)
-        # Cleaning temp file
-        subprocess.call(["rm", "-rf", ".ds_store"])
 
+    clean_files()
